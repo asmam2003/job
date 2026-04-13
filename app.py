@@ -92,7 +92,11 @@ def action(listing_id, action):
 # ─────────────────────────────────────────────
 # Run
 # ─────────────────────────────────────────────
+from models import init_db, get_session, Listing
+init_db()
 
+if __name__ == "__main__":
+    app.run(debug=True, port=5000)
 if __name__ == "__main__":
     init_db()
     app.run(debug=True, port=5000)
