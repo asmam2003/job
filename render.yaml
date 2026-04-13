@@ -1,0 +1,38 @@
+services:
+  # Web app
+  - type: web
+    name: jobscout
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: jobscout-db
+          property: connectionString
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: APP_USER
+        sync: false
+      - key: APP_PASS
+        sync: false
+
+  # Cron job -- runs scraper + scorer twice a day
+  - type: cron
+    name: jobscout-cron
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python cron.py
+    schedule: "0 8,20 * * *"
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: jobscout-db
+          property: connectionString
+      - key: ANTHROPIC_API_KEY
+        sync: false
+
+databases:
+  - name: jobscout-db
+    databaseName: jobscout
+    plan: free

@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ listing.title }} — JobScout</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-950 text-gray-100 min-h-screen">
+
+  <div class="max-w-3xl mx-auto px-4 py-8">
+
+    <!-- Back -->
+    <a href="{{ url_for('index') }}"
+      class="text-sm text-gray-500 hover:text-gray-300 transition mb-6 inline-block">
+      &larr; Back to queue
+    </a>
+
+    <!-- Header -->
+    <div class="mb-6">
+      <h1 class="text-2xl font-bold leading-tight mb-1">{{ listing.title }}</h1>
+      <p class="text-gray-400">
+        {{ listing.company }}
+        {% if listing.location %}&middot; {{ listing.location }}{% endif %}
+        {% if listing.date_posted %}&middot; {{ listing.date_posted.strftime('%B %d, %Y') }}{% endif %}
+      </p>
+    </div>
+
+    <!-- Score + track -->
+    <div class="flex gap-4 mb-8">
+      <div class="bg-gray-900 border border-gray-800 rounded-lg px-5 py-4 text-center">
+        <p class="text-3xl font-bold
+          {% if listing.fit_score >= 8 %}text-green-400
+          {% elif listing.fit_score >= 6 %}text-yellow-400
+          {% else %}text-gray-400{% endif %}">
+          {{ listing.fit_score }}/10
+        </p>
+        <p class="text-xs text-gray-500 mt-1">Fit score</p>
+      </div>
+
+      {% if listing.best_track %}
+        <div class="bg-gray-900 border border-gray-800 rounded-lg px-5 py-4 text-center">
+          <p class="text-sm font-semibold text-indigo-300">{{ listing.best_track }}</p>
+          <p class="text-xs text-gray-500 mt-1">Best track</p>
+        </div>
+      {% endif %}
+    </div>
+
+    <!-- Gaps -->
+    {% if listing.gaps %}
+      <div class="mb-6">
+        <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Gaps to be aware of</h2>
+        <ul class="space-y-2">
+          {% for gap in listing.gaps %}
+            <li class="flex items-start gap-2 text-sm text-red-300">
+              <span class="mt-0.5 shrink-0">&#9632;</span>
+              {{ gap }}
+            </li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% endif %}
+
+    <!-- JD phrases to address -->
+    {% if listing.jd_phrases %}
+      <div class="mb-8">
+        <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">JD phrases your resume doesn't cover</h2>
+        <ul class="space-y-2">
+          {% for phrase in listing.jd_phrases %}
+            <li class="flex items-start gap-2 text-sm text-amber-300">
+              <span class="mt-0.5 shrink-0">&#9670;</span>
+              "{{ phrase }}"
+            </li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% endif %}
+
+    <!-- Actions -->
+    <div class="flex gap-3 mb-10">
+      <a href="{{ listing.url }}" target="_blank"
+        class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm px-5 py-2.5 rounded transition">
+        Open posting &#8599;
+      </a>
+
+      {% if not listing.applied %}
+        <form method="post" action="{{ url_for('action', listing_id=listing.id, action='applied') }}">
+          <input type="hidden" name="next" value="{{ url_for('listing_detail', listing_id=listing.id) }}">
+          <button type="submit"
+            class="bg-gray-800 hover:bg-gray-700 border border-gray-700 text-sm px-5 py-2.5 rounded transition">
+            Mark applied
+          </button>
+        </form>
+      {% else %}
+        <form method="post" action="{{ url_for('action', listing_id=listing.id, action='unapply') }}">
+          <input type="hidden" name="next" value="{{ url_for('listing_detail', listing_id=listing.id) }}">
+          <button type="submit"
+            class="bg-gray-800 hover:bg-gray-700 border border-gray-700 text-sm px-5 py-2.5 rounded transition text-indigo-300">
+            Applied &check;
+          </button>
+        </form>
+      {% endif %}
+
+      <form method="post" action="{{ url_for('action', listing_id=listing.id, action='dismiss') }}">
+        <input type="hidden" name="next" value="{{ url_for('index') }}">
+        <button type="submit"
+          class="text-sm text-gray-500 hover:text-red-400 px-4 py-2.5 transition">
+          Dismiss
+        </button>
+      </form>
+    </div>
+
+    <!-- Raw JD -->
+    {% if listing.raw_jd %}
+      <div>
+        <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Full job description</h2>
+        <div class="bg-gray-900 border border-gray-800 rounded-lg p-5 text-sm text-gray-300 leading-relaxed whitespace-pre-wrap">{{ listing.raw_jd }}</div>
+      </div>
+    {% endif %}
+
+  </div>
+</body>
+</html>

@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JobScout</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-950 text-gray-100 min-h-screen">
+
+  <div class="max-w-3xl mx-auto px-4 py-8">
+
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-6">
+      <h1 class="text-xl font-bold tracking-tight">JobScout</h1>
+      <span class="text-sm text-gray-500">{{ listings|length }} listings</span>
+    </div>
+
+    <!-- Filters -->
+    <form method="get" class="flex flex-wrap gap-3 mb-8">
+      <!-- Track filter -->
+      <select name="track"
+        class="bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm focus:outline-none">
+        <option value="" {% if not selected_track %}selected{% endif %}>All tracks</option>
+        {% for t in tracks %}
+          <option value="{{ t }}" {% if selected_track == t %}selected{% endif %}>{{ t }}</option>
+        {% endfor %}
+      </select>
+
+      <!-- Min fit score -->
+      <select name="min_fit"
+        class="bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm focus:outline-none">
+        {% for score in [4, 5, 6, 7, 8] %}
+          <option value="{{ score }}" {% if min_fit == score %}selected{% endif %}>
+            Score ≥ {{ score }}
+          </option>
+        {% endfor %}
+      </select>
+
+      <!-- Show applied toggle -->
+      <label class="flex items-center gap-2 text-sm text-gray-400 cursor-pointer">
+        <input type="checkbox" name="show_applied" value="1"
+          {% if show_applied %}checked{% endif %}
+          onchange="this.form.submit()"
+          class="accent-indigo-500">
+        Show applied
+      </label>
+
+      <button type="submit"
+        class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm px-4 py-2 rounded transition">
+        Filter
+      </button>
+    </form>
+
+    <!-- Listing cards -->
+    {% if listings %}
+      <div class="space-y-4">
+        {% for l in listings %}
+          <div class="bg-gray-900 border border-gray-800 rounded-lg p-4">
+
+            <!-- Top row: score badge + title -->
+            <div class="flex items-start gap-3 mb-2">
+              <!-- Fit score badge -->
+              <span class="
+                shrink-0 w-9 h-9 rounded flex items-center justify-center text-sm font-bold
+                {% if l.fit_score >= 8 %}bg-green-700 text-green-100
+                {% elif l.fit_score >= 6 %}bg-yellow-700 text-yellow-100
+                {% else %}bg-gray-700 text-gray-300{% endif %}">
+                {{ l.fit_score }}
+              </span>
+
+              <div class="flex-1 min-w-0">
+                <a href="{{ url_for('listing_detail', listing_id=l.id) }}"
+                  class="font-semibold text-white hover:text-indigo-300 transition leading-tight block">
+                  {{ l.title }}
+                </a>
+                <p class="text-sm text-gray-400 mt-0.5">
+                  {{ l.company }}
+                  {% if l.location %}&middot; {{ l.location }}{% endif %}
+                  {% if l.date_posted %}&middot; {{ l.date_posted.strftime('%b %d') }}{% endif %}
+                </p>
+              </div>
+
+              <!-- Track pill -->
+              {% if l.best_track %}
+                <span class="shrink-0 text-xs bg-gray-800 text-gray-400 px-2 py-1 rounded border border-gray-700">
+                  {{ l.best_track }}
+                </span>
+              {% endif %}
+            </div>
+
+            <!-- Gaps -->
+            {% if l.gaps %}
+              <div class="mt-3 space-y-1">
+                {% for gap in l.gaps %}
+                  <p class="text-xs text-red-400">&#9632; {{ gap }}</p>
+                {% endfor %}
+              </div>
+            {% endif %}
+
+            <!-- JD phrases to address -->
+            {% if l.jd_phrases %}
+              <div class="mt-2 space-y-1">
+                {% for phrase in l.jd_phrases %}
+                  <p class="text-xs text-amber-400">&#9670; "{{ phrase }}"</p>
+                {% endfor %}
+              </div>
+            {% endif %}
+
+            <!-- Actions -->
+            <div class="flex gap-2 mt-4">
+              <a href="{{ l.url }}" target="_blank"
+                class="text-xs bg-gray-800 hover:bg-gray-700 border border-gray-700 px-3 py-1.5 rounded transition">
+                View posting &#8599;
+              </a>
+
+              {% if not l.applied %}
+                <form method="post" action="{{ url_for('action', listing_id=l.id, action='applied') }}">
+                  <input type="hidden" name="next" value="{{ request.url }}">
+                  <button type="submit"
+                    class="text-xs bg-indigo-700 hover:bg-indigo-600 px-3 py-1.5 rounded transition">
+                    Mark applied
+                  </button>
+                </form>
+              {% else %}
+                <span class="text-xs text-indigo-400 px-3 py-1.5">Applied</span>
+              {% endif %}
+
+              <form method="post" action="{{ url_for('action', listing_id=l.id, action='dismiss') }}">
+                <input type="hidden" name="next" value="{{ request.url }}">
+                <button type="submit"
+                  class="text-xs text-gray-500 hover:text-red-400 px-2 py-1.5 transition">
+                  Dismiss
+                </button>
+              </form>
+            </div>
+
+          </div>
+        {% endfor %}
+      </div>
+
+    {% else %}
+      <div class="text-center text-gray-500 py-20">
+        <p class="text-lg mb-2">No listings match these filters.</p>
+        <p class="text-sm">Try lowering the minimum score or removing the track filter.</p>
+      </div>
+    {% endif %}
+
+  </div>
+</body>
+</html>
