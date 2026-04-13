@@ -25,7 +25,6 @@ AGENCY_SIGNALS = [
 # Title blocklist -- wrong track OR seniority
 # ─────────────────────────────────────────────
 
-# These are checked as whole-word or prefix matches against the lowercased title
 TITLE_BLOCKLIST_EXACT = [
     "sales",
     "account executive",
@@ -60,17 +59,25 @@ TITLE_BLOCKLIST_EXACT = [
     "support specialist",
     "support engineer",
     "customer support",
-    "business analyst",   # too generic -- catches fraud model analyst etc.
+    "business analyst",
+    "imagery analyst",
+    "geospatial analyst",
+    "signals intelligence",
+    "cyberspace targeting",
+    "targeting analyst",
+    "intelligence operations specialist",
 ]
 
-# Seniority/management -- checked as substring anywhere in title
+# Checked as substring anywhere in lowercased title
 SENIORITY_BLOCKLIST = [
     "senior",
     " sr.",
-    " sr ",
+    "sr ",        # catches "Sr OSINT" at start
+    "sr.",
     "principal",
     "staff ",
     " lead",
+    "lead,",      # catches "Lead, Cyber..."
     "team lead",
     "manager",
     "director",
@@ -82,10 +89,9 @@ SENIORITY_BLOCKLIST = [
     " sme",
     "level iii",
     "level 3",
-    " iii ",
-    ", iii",
-    "journeyman",   # DoD/contracting mid-level term
-    "expert",
+    " iii",       # catches "Analyst III", "Engineer III"
+    "journeyman",
+    " expert",
 ]
 
 # ─────────────────────────────────────────────
@@ -122,25 +128,62 @@ CLEARANCE_SIGNALS = [
     "ts/sci",
     "top secret",
     "secret clearance",
-    "security clearance required",
-    "security clearance needed",
+    "security clearance",
     "active clearance",
     "clearance required",
     "clearance eligible",
+    "clearance preferred",
     "sf-86",
     "sf86",
     "polygraph",
-    "security clearance",   # broad catch -- most gov contractor roles
     "dod clearance",
     "government clearance",
     "federal clearance",
-    "clearance preferred",
     "must be clearable",
+    "public trust clearance",
+    "public trust required",
 ]
 
 # ─────────────────────────────────────────────
-# Language -- hard no if requires a language Asma doesn't speak
-# Arabic and basic Russian are fine. Chinese, French, etc. are not.
+# Military/DoD contractor signals -- not relevant to track
+# ─────────────────────────────────────────────
+
+MILITARY_SIGNALS = [
+    "department of defense",
+    "dod ",
+    "disa ",
+    "uscybercom",
+    "national training center",
+    "fort irwin",
+    "fort liberty",
+    "fort meade",
+    "peterson air force",
+    "shaw afb",
+    "afcent",
+    "arcyber",
+    "acert",
+    "arng",
+    "army national guard",
+    "rotational training",
+    "warfighter",
+    "joint task force",
+    "jtf ",
+    "campaign plan",
+    "operational planning",
+    "military affiliated",
+    "softcopy imagery",
+    "geospatial intelligence",
+    "imagery analysis",
+    "satellite imagery",
+    "pai targeting",
+    "targeting analyst",
+    "contingent upon contract award",
+    "correctional facility",
+    "cellular interdiction",
+]
+
+# ─────────────────────────────────────────────
+# Language requirements
 # ─────────────────────────────────────────────
 
 LANGUAGE_BLOCKLIST = [
@@ -178,6 +221,11 @@ LANGUAGE_BLOCKLIST = [
     "working proficiency in japanese",
     "working proficiency in french",
     "working proficiency in spanish",
+    "english, spanish",     # catches bilingual job titles/requirements
+    "spanish, english",
+    "english and spanish",
+    "spanish and english",
+    "latin american policy",  # proxy for Spanish requirement in Google roles
 ]
 
 # ─────────────────────────────────────────────
@@ -191,7 +239,7 @@ NON_US_SIGNALS = [
     "portugal", "sweden", "denmark", "norway", "finland",
     "gurugram", "bangalore", "bengaluru", "toronto", "vancouver",
     "sydney", "melbourne", "berlin", "paris", "amsterdam", "dublin",
-    "gothenburg", "stockholm", "stockholm", "ljubljana", "são paulo",
+    "gothenburg", "stockholm", "ljubljana", "são paulo",
     "sao paulo", "zurich", "prague", "warsaw", "budapest",
     "remote - uk", "remote - india", "remote - canada",
     "remote - australia", "remote - germany", "hybrid - bangalore",
@@ -209,7 +257,7 @@ US_SIGNALS = [
     "plano", "irving", "fort worth", ", tx", ", ca", ", ny",
     ", wa", ", ma", ", va", ", ga", ", co", ", il", ", fl",
     ", nc", ", mn", ", pa", ", md", ", oh", ", or", ", ut",
-    ", nj", ", az", "lux hub",  # coinbase internal tag for US remote
+    ", nj", ", az", "lux hub",
 ]
 
 # ─────────────────────────────────────────────
@@ -242,6 +290,11 @@ def requires_clearance(text: str) -> bool:
     return any(s in t for s in CLEARANCE_SIGNALS)
 
 
+def is_military_dod(text: str) -> bool:
+    t = text.lower()
+    return any(s in t for s in MILITARY_SIGNALS)
+
+
 def requires_foreign_language(text: str) -> bool:
     t = text.lower()
     return any(s in t for s in LANGUAGE_BLOCKLIST)
@@ -249,11 +302,9 @@ def requires_foreign_language(text: str) -> bool:
 
 def title_blocked(title: str) -> bool:
     t = title.lower().strip()
-    # Exact/prefix match for wrong-track roles
     for block in TITLE_BLOCKLIST_EXACT:
         if t == block or t.startswith(block):
             return True
-    # Substring match for seniority
     for block in SENIORITY_BLOCKLIST:
         if block in t:
             return True
@@ -267,15 +318,12 @@ def is_relevant(title: str, jd: str) -> bool:
 
 def is_us_location(location: str) -> bool:
     if not location or location.strip() == "":
-        return True  # no location = benefit of the doubt
+        return True
     loc = location.lower()
-    # Non-US check first
     if any(s in loc for s in NON_US_SIGNALS):
         return False
-    # US check
     if any(s in loc for s in US_SIGNALS):
         return True
-    # Ambiguous -- let through
     return True
 
 
@@ -318,6 +366,9 @@ def passes(listing: dict) -> tuple[bool, str]:
 
     if requires_clearance(full_text):
         return False, "requires clearance"
+
+    if is_military_dod(full_text):
+        return False, "military/DoD contractor role"
 
     if requires_foreign_language(full_text):
         return False, "requires language Asma doesn't speak"
