@@ -3,8 +3,7 @@ from flask import Flask, render_template, redirect, url_for, request, abort
 from flask_httpauth import HTTPBasicAuth
 from dotenv import load_dotenv
 from models import init_db, get_session, Listing
-from sqlalchemy import desc
-from sqlalchemy import text
+from sqlalchemy import desc, text
 
 load_dotenv()
 
@@ -28,8 +27,8 @@ def verify(username, password):
 @auth.login_required
 def index():
     session = get_session()
-    track   = request.args.get("track", "")
-    min_fit = int(request.args.get("min_fit", 5))
+    track        = request.args.get("track", "")
+    min_fit      = int(request.args.get("min_fit", 5))
     show_applied = request.args.get("show_applied") == "1"
 
     q = (
@@ -90,18 +89,6 @@ def action(listing_id, action):
     return redirect(next_url)
 
 
-# ─────────────────────────────────────────────
-# Run
-# ─────────────────────────────────────────────
-from models import init_db, get_session, Listing
-init_db()
-
-if __name__ == "__main__":
-    app.run(debug=True, port=5000)
-if __name__ == "__main__":
-    init_db()
-    app.run(debug=True, port=5000)
-
 @app.route("/reset-db-asma-only")
 @auth.login_required
 def reset_db():
@@ -110,3 +97,13 @@ def reset_db():
     session.commit()
     session.close()
     return "cleared"
+
+
+# ─────────────────────────────────────────────
+# Init and run
+# ─────────────────────────────────────────────
+
+init_db()
+
+if __name__ == "__main__":
+    app.run(debug=True, port=5000)
