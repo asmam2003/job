@@ -4,6 +4,7 @@ from flask_httpauth import HTTPBasicAuth
 from dotenv import load_dotenv
 from models import init_db, get_session, Listing
 from sqlalchemy import desc
+from sqlalchemy import text
 
 load_dotenv()
 
@@ -100,3 +101,12 @@ if __name__ == "__main__":
 if __name__ == "__main__":
     init_db()
     app.run(debug=True, port=5000)
+
+@app.route("/reset-db-asma-only")
+@auth.login_required
+def reset_db():
+    session = get_session()
+    session.execute(text("DELETE FROM listings"))
+    session.commit()
+    session.close()
+    return "cleared"
