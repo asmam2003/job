@@ -40,9 +40,10 @@ class Listing(Base):
 
 def get_engine():
     url = os.environ["DATABASE_URL"]
-    # Render gives postgres:// but SQLAlchemy 2.x needs postgresql://
     if url.startswith("postgres://"):
-        url = url.replace("postgres://", "postgresql://", 1)
+        url = url.replace("postgres://", "postgresql+psycopg://", 1)
+    elif url.startswith("postgresql://"):
+        url = url.replace("postgresql://", "postgresql+psycopg://", 1)
     return create_engine(url)
 
 
