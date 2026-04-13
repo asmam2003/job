@@ -37,12 +37,27 @@ def run():
     # 2. Filter and insert new ones
     inserted = 0
     filtered = 0
+
+    # Deduplicate same company+title within this batch to stop the same
+    # role appearing across multiple cities flooding the queue
+    seen_company_title = set()
+
     for data in raw_listings:
         ok, reason = passes(data)
         if not ok:
             log.debug(f"Filtered [{reason}]: {data.get('company')} - {data.get('title')}")
             filtered += 1
             continue
+
+        dedup_key = (
+            (data.get("company") or "").lower().strip(),
+            (data.get("title") or "").lower().strip(),
+        )
+        if dedup_key in seen_company_title:
+            log.debug(f"Dedup [company+title]: {data.get('company')} - {data.get('title')}")
+            filtered += 1
+            continue
+        seen_company_title.add(dedup_key)
 
         listing = Listing(
             source      = data["source"],
