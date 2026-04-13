@@ -6,12 +6,14 @@ A listing must pass ALL filters to be queued for scoring.
 from datetime import date, timedelta
 import re
 
-# Phrases that indicate a staffing agency posting
+# ─────────────────────────────────────────────
+# Agency signals
+# ─────────────────────────────────────────────
+
 AGENCY_SIGNALS = [
     "our client",
     "confidential company",
     "undisclosed company",
-    "staffing",
     "on behalf of",
     "contract-to-hire",
     "c2h",
@@ -19,172 +21,276 @@ AGENCY_SIGNALS = [
     "1099",
 ]
 
-# Title substrings that indicate wrong track or seniority level
-TITLE_BLOCKLIST = [
+# ─────────────────────────────────────────────
+# Title blocklist -- wrong track OR seniority
+# ─────────────────────────────────────────────
+
+# These are checked as whole-word or prefix matches against the lowercased title
+TITLE_BLOCKLIST_EXACT = [
     "sales",
     "account executive",
     "marketing",
-    "hr ",
     "human resources",
     "recruiter",
     "physical security",
     "safety officer",
     "facilities",
-    "janitor",
     "administrative assistant",
-    # Seniority/management blocklist
+    "technical writer",
+    "technical trainer",
+    "trainer",
+    "training coordinator",
+    "product manager",
+    "product operations",
+    "program manager",
+    "software engineer",
+    "software developer",
+    "data engineer",
+    "data scientist",
+    "machine learning engineer",
+    "ml engineer",
+    "api engineer",
+    "quality analyst",
+    "qa engineer",
+    "solutions engineer",
+    "forward deployed engineer",
+    "vulnerability management",
+    "knowledge manager",
+    "operations coordinator",
+    "support specialist",
+    "support engineer",
+    "customer support",
+    "business analyst",   # too generic -- catches fraud model analyst etc.
+]
+
+# Seniority/management -- checked as substring anywhere in title
+SENIORITY_BLOCKLIST = [
     "senior",
-    "sr.",
-    "sr ",
+    " sr.",
+    " sr ",
     "principal",
     "staff ",
-    "lead ",
+    " lead",
     "team lead",
     "manager",
     "director",
     "head of",
-    "vp ",
+    " vp ",
     "vice president",
     "distinguished",
+    "subject matter expert",
+    " sme",
+    "level iii",
+    "level 3",
+    " iii ",
+    ", iii",
+    "journeyman",   # DoD/contracting mid-level term
+    "expert",
 ]
 
-# Must see at least one of these in title or JD to pass
+# ─────────────────────────────────────────────
+# Relevance -- must match at least one
+# ─────────────────────────────────────────────
+
 RELEVANCE_SIGNALS = [
     "threat intel",
     "threat intelligence",
     "osint",
-    "fraud",
+    "fraud analyst",
+    "fraud investigat",
+    "fraud risk",
+    "fraud strategy",
     "trust and safety",
     "trust & safety",
-    "incident response",
+    "incident response analyst",
     "detection engineer",
     "security analyst",
     "intelligence analyst",
-    "investigations",
+    "criminal intelligence",
+    "cyber intelligence",
     "soc analyst",
-    "cyber",
-    "information security",
-    "infosec",
+    "information security analyst",
+    "insider threat",
+    "anti-fraud",
 ]
 
-# Hard no -- clearance-required signals
+# ─────────────────────────────────────────────
+# Clearance -- hard no
+# ─────────────────────────────────────────────
+
 CLEARANCE_SIGNALS = [
     "ts/sci",
-    "secret clearance",
     "top secret",
+    "secret clearance",
     "security clearance required",
+    "security clearance needed",
     "active clearance",
+    "clearance required",
+    "clearance eligible",
     "sf-86",
+    "sf86",
     "polygraph",
+    "security clearance",   # broad catch -- most gov contractor roles
+    "dod clearance",
+    "government clearance",
+    "federal clearance",
+    "clearance preferred",
+    "must be clearable",
 ]
 
-# Patterns indicating required experience of 3+ years
-# Matches things like "3+ years required", "5 years of experience required",
-# "requires 4 years", "minimum 3 years" etc.
-# Only triggers on required/minimum framing, not "preferred" or "nice to have"
+# ─────────────────────────────────────────────
+# Language -- hard no if requires a language Asma doesn't speak
+# Arabic and basic Russian are fine. Chinese, French, etc. are not.
+# ─────────────────────────────────────────────
+
+LANGUAGE_BLOCKLIST = [
+    "chinese language",
+    "mandarin",
+    "cantonese",
+    "japanese language",
+    "korean language",
+    "french language",
+    "german language",
+    "spanish language",
+    "portuguese language",
+    "hindi language",
+    "farsi",
+    "persian language",
+    "hebrew language",
+    "turkish language",
+    "proficiency in chinese",
+    "proficiency in japanese",
+    "proficiency in french",
+    "proficiency in spanish",
+    "proficiency in german",
+    "proficiency in korean",
+    "fluency in chinese",
+    "fluency in japanese",
+    "fluency in french",
+    "fluency in spanish",
+    "fluency in german",
+    "fluency in korean",
+    "native chinese",
+    "native japanese",
+    "native french",
+    "native spanish",
+    "working proficiency in chinese",
+    "working proficiency in japanese",
+    "working proficiency in french",
+    "working proficiency in spanish",
+]
+
+# ─────────────────────────────────────────────
+# Non-US locations
+# ─────────────────────────────────────────────
+
+NON_US_SIGNALS = [
+    "canada", "united kingdom", " uk ", "london", "india", "australia",
+    "germany", "france", "singapore", "ireland", "netherlands",
+    "poland", "spain", "brazil", "mexico", "japan", "china",
+    "portugal", "sweden", "denmark", "norway", "finland",
+    "gurugram", "bangalore", "bengaluru", "toronto", "vancouver",
+    "sydney", "melbourne", "berlin", "paris", "amsterdam", "dublin",
+    "gothenburg", "stockholm", "stockholm", "ljubljana", "são paulo",
+    "sao paulo", "zurich", "prague", "warsaw", "budapest",
+    "remote - uk", "remote - india", "remote - canada",
+    "remote - australia", "remote - germany", "hybrid - bangalore",
+]
+
+US_SIGNALS = [
+    "united states", "usa", "u.s.", "remote", "us remote",
+    "remote - usa", "remote - us", "remote us", "anywhere in the us",
+    "new york", "san francisco", "los angeles", "chicago", "seattle",
+    "austin", "boston", "dallas", "denver", "atlanta", "miami",
+    "washington", "houston", "phoenix", "san diego", "portland",
+    "minneapolis", "charlotte", "pittsburgh", "menlo park",
+    "mountain view", "santa clara", "san mateo", "san jose",
+    "kirkland", "bellevue", "reston", "herndon", "arlington",
+    "plano", "irving", "fort worth", ", tx", ", ca", ", ny",
+    ", wa", ", ma", ", va", ", ga", ", co", ", il", ", fl",
+    ", nc", ", mn", ", pa", ", md", ", oh", ", or", ", ut",
+    ", nj", ", az", "lux hub",  # coinbase internal tag for US remote
+]
+
+# ─────────────────────────────────────────────
+# Experience -- required 3+ years
+# ─────────────────────────────────────────────
+
 EXPERIENCE_REQUIRED_PATTERNS = [
-    r"\b([3-9]|\d{2,})\+?\s*years?\s+of\s+(?:relevant\s+)?experience\s+(?:is\s+)?required",
+    r"\b([3-9]|\d{2,})\+?\s*years?\s+of\s+(?:relevant\s+|related\s+|professional\s+)?experience\s+(?:is\s+)?required",
     r"\brequires?\s+([3-9]|\d{2,})\+?\s*years?",
     r"\bminimum\s+(?:of\s+)?([3-9]|\d{2,})\+?\s*years?",
     r"\bat\s+least\s+([3-9]|\d{2,})\+?\s*years?",
     r"\b([3-9]|\d{2,})\+\s*years?\s+(?:of\s+)?(?:professional\s+|relevant\s+|work\s+)?experience",
-]
-
-# US location signals -- if location is present, must contain one of these
-US_SIGNALS = [
-    "united states",
-    "usa",
-    "u.s.",
-    ", al", ", ak", ", az", ", ar", ", ca", ", co", ", ct",
-    ", dc", ", de", ", fl", ", ga", ", hi", ", id", ", il",
-    ", in", ", ia", ", ks", ", ky", ", la", ", me", ", md",
-    ", ma", ", mi", ", mn", ", ms", ", mo", ", mt", ", ne",
-    ", nv", ", nh", ", nj", ", nm", ", ny", ", nc", ", nd",
-    ", oh", ", ok", ", or", ", pa", ", ri", ", sc", ", sd",
-    ", tn", ", tx", ", ut", ", vt", ", va", ", wa", ", wv",
-    ", wi", ", wy",
-    "new york", "san francisco", "los angeles", "chicago",
-    "seattle", "austin", "boston", "dallas", "denver",
-    "atlanta", "miami", "washington", "remote",
-    "remote - usa", "remote - us", "us remote",
-    "anywhere in the us", "anywhere in the united states",
+    r"\b([3-9]|\d{2,})\s*\+?\s*years?\s+experience\s+(?:in|with)\b",
 ]
 
 MAX_AGE_DAYS = 21
 
 
+# ─────────────────────────────────────────────
+# Filter functions
+# ─────────────────────────────────────────────
+
 def is_agency(text: str) -> bool:
-    text_lower = text.lower()
-    return any(signal in text_lower for signal in AGENCY_SIGNALS)
+    t = text.lower()
+    return any(s in t for s in AGENCY_SIGNALS)
 
 
 def requires_clearance(text: str) -> bool:
-    text_lower = text.lower()
-    return any(signal in text_lower for signal in CLEARANCE_SIGNALS)
+    t = text.lower()
+    return any(s in t for s in CLEARANCE_SIGNALS)
 
 
-def is_relevant(title: str, jd: str) -> bool:
-    combined = (title + " " + (jd or "")).lower()
-    return any(signal in combined for signal in RELEVANCE_SIGNALS)
+def requires_foreign_language(text: str) -> bool:
+    t = text.lower()
+    return any(s in t for s in LANGUAGE_BLOCKLIST)
 
 
 def title_blocked(title: str) -> bool:
-    title_lower = title.lower()
-    return any(block in title_lower for block in TITLE_BLOCKLIST)
-
-
-def requires_too_much_experience(jd: str) -> bool:
-    """
-    Returns True if JD explicitly requires 3+ years as a hard requirement.
-    Ignores 'preferred', 'nice to have', 'a plus' framing.
-    """
-    if not jd:
-        return False
-    jd_lower = jd.lower()
-
-    # Skip if the years mention is in a preferred/nice-to-have context
-    # by checking surrounding context
-    for pattern in EXPERIENCE_REQUIRED_PATTERNS:
-        matches = re.finditer(pattern, jd_lower)
-        for match in matches:
-            # Check 60 chars after match for softening language
-            end = match.end()
-            context_after = jd_lower[end:end+60]
-            if any(soft in context_after for soft in ["preferred", "nice to", "a plus", "bonus"]):
-                continue
+    t = title.lower().strip()
+    # Exact/prefix match for wrong-track roles
+    for block in TITLE_BLOCKLIST_EXACT:
+        if t == block or t.startswith(block):
+            return True
+    # Substring match for seniority
+    for block in SENIORITY_BLOCKLIST:
+        if block in t:
             return True
     return False
 
 
+def is_relevant(title: str, jd: str) -> bool:
+    combined = (title + " " + (jd or "")).lower()
+    return any(s in combined for s in RELEVANCE_SIGNALS)
+
+
 def is_us_location(location: str) -> bool:
-    """
-    Returns True if location is in the US or unspecified (benefit of the doubt).
-    Returns False if location is clearly outside the US.
-    """
     if not location or location.strip() == "":
-        return True  # no location listed, don't filter out
-
-    loc_lower = location.lower()
-
-    # Explicitly non-US signals
-    non_us = [
-        "canada", "united kingdom", "uk", "london", "india", "australia",
-        "germany", "france", "singapore", "ireland", "netherlands",
-        "poland", "spain", "brazil", "mexico", "japan", "china",
-        "portugal", "sweden", "denmark", "norway", "finland",
-        "gurugram", "bangalore", "toronto", "vancouver", "sydney",
-        "melbourne", "berlin", "paris", "amsterdam", "dublin",
-        "gothenburg", "stockholm", "gothenburg"
-    ]
-    if any(sig in loc_lower for sig in non_us):
+        return True  # no location = benefit of the doubt
+    loc = location.lower()
+    # Non-US check first
+    if any(s in loc for s in NON_US_SIGNALS):
         return False
-
-    # Check for US signals
-    if any(sig in loc_lower for sig in US_SIGNALS):
+    # US check
+    if any(s in loc for s in US_SIGNALS):
         return True
-
-    # If location is present but ambiguous, let it through
+    # Ambiguous -- let through
     return True
+
+
+def requires_too_much_experience(jd: str) -> bool:
+    if not jd:
+        return False
+    jd_lower = jd.lower()
+    for pattern in EXPERIENCE_REQUIRED_PATTERNS:
+        for match in re.finditer(pattern, jd_lower):
+            end = match.end()
+            context_after = jd_lower[end:end+80]
+            if any(soft in context_after for soft in ["preferred", "nice to", "a plus", "bonus", "desired"]):
+                continue
+            return True
+    return False
 
 
 def is_recent(posted_date) -> bool:
@@ -194,24 +300,27 @@ def is_recent(posted_date) -> bool:
     return posted_date >= cutoff
 
 
+# ─────────────────────────────────────────────
+# Main entry point
+# ─────────────────────────────────────────────
+
 def passes(listing: dict) -> tuple[bool, str]:
-    """
-    Returns (True, "") if listing passes all filters.
-    Returns (False, reason) if it fails.
-    """
-    title    = listing.get("title", "")
+    title    = listing.get("title", "") or ""
     jd       = listing.get("raw_jd", "") or ""
     location = listing.get("location", "") or ""
     full_text = title + " " + jd
 
     if title_blocked(title):
-        return False, "title blocklist / seniority"
+        return False, "title/seniority blocklist"
 
     if is_agency(full_text):
         return False, "agency posting"
 
     if requires_clearance(full_text):
         return False, "requires clearance"
+
+    if requires_foreign_language(full_text):
+        return False, "requires language Asma doesn't speak"
 
     if not is_relevant(title, jd):
         return False, "not relevant"
